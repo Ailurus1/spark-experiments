@@ -1,0 +1,14 @@
+[project]
+name = "datanode-opt"
+version = "0.1.0"
+description = "Experiment on Spark with different number of hadoop datanodes"
+requires-python = ">=3.12"
+dependencies = [
+    "pre-commit",
+    "pyspark",
+    "kagglehub",
+]
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
