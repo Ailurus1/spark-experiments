@@ -5,6 +5,7 @@ description = "Experiment on Spark with different number of hadoop datanodes"
 requires-python = ">=3.12"
 dependencies = [
     "pre-commit",
+    "numpy <2.0.0",
     "pyspark",
     "kagglehub",
 ]
