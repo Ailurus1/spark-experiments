@@ -43,12 +43,12 @@ run_experiments() {
 
 cleanup_docker() {
     echo "Stopping and removing containers..."
-    docker-compose -f "$1" down -v
-    sleep 5
+    docker compose -f "$1" down -v
+    sleep 30
 }
 
 echo "Starting 1 DataNode experiment..."
-docker-compose -f docker-compose-1dn.yml up -d
+docker compose -f docker-compose-1dn.yml up -d
 
 wait_for_hadoop
 wait_for_spark
@@ -58,7 +58,7 @@ run_experiments "results_1dn"
 cleanup_docker "docker-compose-1dn.yml"
 
 echo "Starting 3 DataNode experiment..."
-docker-compose -f docker-compose-3dn.yml up -d
+docker compose -f docker-compose-3dn.yml up -d
 wait_for_hadoop
 wait_for_spark
 copy_to_hdfs
