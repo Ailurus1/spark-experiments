@@ -1,6 +1,5 @@
 import kagglehub
 from pathlib import Path
-import pandas as pd
 
 
 def download_anime_dataset():
@@ -9,11 +8,10 @@ def download_anime_dataset():
     destination = Path("data")
     destination.mkdir(exist_ok=True)
 
-    target = destination / "anime_dataset.parquet"
+    target = destination / "final_animedataset.csv"
     if not target.exists():
-        df = pd.read_csv(source)
-        df.to_parquet(target)
-        print(f"Dataset downloaded and converted to parquet at {target}")
+        target.write_bytes(source.read_bytes())
+        print(f"Dataset downloaded to {target}")
     else:
         print(f"Dataset already exists at {target}")
 

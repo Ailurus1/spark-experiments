@@ -9,6 +9,7 @@ import logging
 import pandas as pd
 from typing import Tuple, Dict
 
+seed = 42
 logging.basicConfig(
     level=logging.INFO,
     format="%(asctime)s - %(levelname)s - %(message)s",
@@ -60,14 +61,15 @@ def create_spark_session(optimized: bool = False) -> SparkSession:
 
 @timer.measure("load_data")
 def load_data(spark: SparkSession) -> DataFrame:
-    data_path = Path("data/anime_dataset.parquet")
+    data_path = Path("data/final_animedataset.csv")
+
     if not data_path.exists():
         raise FileNotFoundError(
             "Dataset not found. Please run download_dataset.py first"
         )
 
     logger.info("Loading dataset from local storage")
-    return spark.read.parquet(str(data_path))
+    return spark.read.format("csv").load(str(data_path), header=True, inferSchema=True)
 
 
 @timer.measure("prepare_data")
@@ -91,6 +93,7 @@ def split_data(df: DataFrame) -> Tuple[DataFrame, DataFrame]:
 def train_model(train_df: DataFrame) -> ALS:
     logger.info("Starting model training")
     als = ALS(
+        seed=seed,
         maxIter=5,
         regParam=0.01,
         userCol="user_id",

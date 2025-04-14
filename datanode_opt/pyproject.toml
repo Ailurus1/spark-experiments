@@ -8,7 +8,9 @@ dependencies = [
     "numpy <2.0.0",
     "pyspark",
     "kagglehub",
-    "pandas"
+    "pandas",
+    "matplotlib",
+    "seaborn"
 ]
 
 [build-system]
