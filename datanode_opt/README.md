@@ -2,4 +2,5 @@
 
 
 
-> Note: docker compose files references - [docker-hadoop](https://github.com/big-data-europe/docker-hadoop)
+## Note
+Docker compose files references - [docker-hadoop](https://github.com/big-data-europe/docker-hadoop), [docker-spark](https://github.com/big-data-europe/docker-spark)
