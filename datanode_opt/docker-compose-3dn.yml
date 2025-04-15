@@ -14,6 +14,7 @@ services:
       - CLUSTER_NAME=test
     env_file:
       - ./hadoop.env
+    mem_limit: 1g
 
   datanode-1:
     image: bde2020/hadoop-datanode:2.0.0-hadoop3.2.1-java8
@@ -25,6 +26,7 @@ services:
       SERVICE_PRECONDITION: "namenode:9870"
     env_file:
       - ./hadoop.env
+    mem_limit: 512m
 
   datanode-2:
     image: bde2020/hadoop-datanode:2.0.0-hadoop3.2.1-java8
@@ -36,6 +38,7 @@ services:
       SERVICE_PRECONDITION: "namenode:9870"
     env_file:
       - ./hadoop.env
+    mem_limit: 512m
 
   datanode-3:
     image: bde2020/hadoop-datanode:2.0.0-hadoop3.2.1-java8
@@ -47,6 +50,7 @@ services:
       SERVICE_PRECONDITION: "namenode:9870"
     env_file:
       - ./hadoop.env
+    mem_limit: 512m
 
   spark-master:
     image: bde2020/spark-master:3.3.0-hadoop3.3
@@ -64,6 +68,7 @@ services:
       - PYSPARK_PYTHON=/usr/bin/python3
     env_file:
       - ./hadoop.env
+    mem_limit: 1g
 
   spark-worker:
     image: bde2020/spark-worker:3.3.0-hadoop3.3
@@ -76,6 +81,7 @@ services:
       - "SPARK_MASTER=spark://spark-master:7077"
     env_file:
       - ./hadoop.env
+    mem_limit: 1g
 
 volumes:
   hadoop_namenode:

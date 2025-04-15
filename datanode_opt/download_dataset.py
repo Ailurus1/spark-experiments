@@ -7,7 +7,7 @@ def download_anime_dataset():
     destination.mkdir(exist_ok=True)
     target = destination / "final_animedataset.csv"
 
-    if not target(target):
+    if not target.exists():
         path = Path(kagglehub.dataset_download("dbdmobile/myanimelist-dataset"))
         source = path / "final_animedataset.csv"
         target.write_bytes(source.read_bytes())

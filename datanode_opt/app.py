@@ -43,17 +43,15 @@ def create_spark_session(optimized: bool = False) -> SparkSession:
 
     if optimized:
         builder = (
-            builder.config("spark.sql.shuffle.partitions", "100")
-            .config("spark.executor.cores", "4")
+            builder.config("spark.sql.shuffle.partitions", "200")
+            .config("spark.executor.cores", "2")
             .config("spark.default.parallelism", "100")
-            .config("spark.memory.fraction", "0.8")
-            .config("spark.memory.storageFraction", "0.3")
+            .config("spark.memory.fraction", "0.6")
             .config("spark.sql.adaptive.enabled", "true")
             .config("spark.sql.adaptive.coalescePartitions.enabled", "true")
             .config("spark.dynamicAllocation.enabled", "true")
             .config("spark.sql.inMemoryColumnarStorage.compressed", "true")
-            .config("spark.sql.files.maxPartitionBytes", "134217728")
-            .config("spark.sql.autoBroadcastJoinThreshold", "10485760")
+            .config("spark.sql.files.maxPartitionBytes", "67108864")
         )
 
     return builder.getOrCreate()

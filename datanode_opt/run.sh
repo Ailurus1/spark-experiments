@@ -23,6 +23,7 @@ wait_for_spark() {
     echo "Spark is ready!"
 }
 
+
 copy_to_hdfs() {
     echo "Creating HDFS directories..."
     docker exec namenode hdfs dfs -mkdir -p /data
@@ -52,6 +53,7 @@ docker compose -f docker-compose-1dn.yml up -d
 
 wait_for_hadoop
 wait_for_spark
+docker exec namenode hdfs dfsadmin -safemode leave
 copy_to_hdfs
 run_experiments "results_1dn"
 
@@ -61,6 +63,7 @@ echo "Starting 3 DataNode experiment..."
 docker compose -f docker-compose-3dn.yml up -d
 wait_for_hadoop
 wait_for_spark
+docker exec namenode hdfs dfsadmin -safemode leave
 copy_to_hdfs
 run_experiments "results_3dn"
 
