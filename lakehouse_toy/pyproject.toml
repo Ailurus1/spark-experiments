@@ -6,14 +6,17 @@ requires-python = ">=3.12"
 dependencies = [
     "pre-commit",
     "numpy <2.0.0",
-    "pyspark",
+    "pyspark==3.5.0",
     "kagglehub",
     "pandas",
     "matplotlib",
     "seaborn",
-    "delta-spark",
+    "delta-spark==3.2.0",
     "mlflow"
 ]
+
+[tool.hatch.build.targets.wheel]
+packages = ["src"]
 
 [build-system]
 requires = ["hatchling"]
