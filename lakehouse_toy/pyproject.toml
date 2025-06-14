@@ -1,0 +1,20 @@
+[project]
+name = "lakehouse-toy"
+version = "0.1.0"
+description = "Experiments with toy lakehouse"
+requires-python = ">=3.12"
+dependencies = [
+    "pre-commit",
+    "numpy <2.0.0",
+    "pyspark",
+    "kagglehub",
+    "pandas",
+    "matplotlib",
+    "seaborn",
+    "delta-spark",
+    "mlflow"
+]
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
