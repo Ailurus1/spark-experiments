@@ -14,6 +14,7 @@ RUN apk update && \
 
 COPY pyproject.toml* ./
 COPY src/ ./src/
+COPY docker/entrypoint.sh /app/entrypoint.sh
 RUN mkdir -p data
 
 RUN uv pip install --system -r pyproject.toml
@@ -23,16 +24,6 @@ ENV JAVA_HOME=/usr/lib/jvm/java-17-openjdk-amd64
 
 RUN mkdir -p /tmp/spark-temp
 
-RUN echo '#!/bin/bash\n\
-if [ -d "data" ] && [ "$(ls -A data)" ]; then\n\
-    echo "Data directory exists and is not empty, skipping download"\n\
-else\n\
-    echo "Downloading dataset..."\n\
-    python3 src/download_dataset.py\n\
-fi\n\
-\n\
-echo "Starting application..."\n\
-python3 src/app.py\n\
-' > /app/entrypoint.sh && chmod +x /app/entrypoint.sh
+RUN chmod +x /app/entrypoint.sh
 
 ENTRYPOINT ["/app/entrypoint.sh"]
