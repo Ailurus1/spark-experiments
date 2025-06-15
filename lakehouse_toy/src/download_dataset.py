@@ -8,7 +8,9 @@ def download_dataset():
     target = destination / "data.csv"
 
     if not target.exists():
-        path = Path(kagglehub.dataset_download("parisrohan/credit-score-classification"))
+        path = Path(
+            kagglehub.dataset_download("parisrohan/credit-score-classification")
+        )
         source = path / "train.csv"
         target.write_bytes(source.read_bytes())
         print(f"Dataset downloaded to {target}")
