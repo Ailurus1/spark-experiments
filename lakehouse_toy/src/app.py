@@ -19,7 +19,7 @@ def main():
     
     input_path = "data/data.csv"
     
-    etl = create_etl_pipeline(spark)
+    etl = create_etl_pipeline(spark, repartition=True)
 
     etl(input_path)
 

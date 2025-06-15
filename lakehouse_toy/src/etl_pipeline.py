@@ -216,10 +216,12 @@ class ETLPipeline:
         silver_df, gold_df = self.transform()
         self.load(silver_df, gold_df)
 
-def create_etl_pipeline(spark: SparkSession):
+def create_etl_pipeline(spark: SparkSession, repartition: bool = False):
     etl = ETLPipeline(spark)
-    etl.transform = repartition(spark)(etl.transform)
-    etl._process_silver_layer = repartition(spark)(etl._process_silver_layer)
-    etl._process_gold_layer = repartition(spark)(etl._process_gold_layer)
+    
+    if repartition:
+        etl.transform = repartition(spark)(etl.transform)
+        etl._process_silver_layer = repartition(spark)(etl._process_silver_layer)
+        etl._process_gold_layer = repartition(spark)(etl._process_gold_layer)
 
     return etl
