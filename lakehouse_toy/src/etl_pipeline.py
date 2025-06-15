@@ -1,13 +1,20 @@
 from pyspark.sql import SparkSession, DataFrame
 from pyspark.sql.functions import (
     col, when, regexp_extract, lit, avg, count, 
-    stddev, percentile_approx, expr, abs as spark_abs
+    stddev, percentile_approx, expr, abs as spark_abs,
+    collect_list, struct
 )
-from pyspark.sql.types import IntegerType, DoubleType
+from pyspark.sql.types import IntegerType, DoubleType, StringType
+from pyspark.ml.feature import StringIndexer, OneHotEncoder, VectorAssembler
 from typing import List, Tuple, TypeVar, Callable
 from functools import wraps
+from pathlib import Path
+import logging
 
 T = TypeVar('T', DataFrame, Tuple[DataFrame, ...])
+
+logging.basicConfig(level=logging.INFO)
+logger = logging.getLogger(__name__)
 
 def repartition(spark: SparkSession):
     def repartition_output(func: Callable[..., T]) -> Callable[..., T]:
@@ -31,11 +38,11 @@ def repartition(spark: SparkSession):
     return repartition_output
 
 class ETLPipeline:
-    def __init__(self, spark: SparkSession):
+    def __init__(self, spark: SparkSession, root_dir: str):
         self.spark = spark
-        self.bronze_path = "data/bronze/credit_data"
-        self.silver_path = "data/silver/credit_data"
-        self.gold_path = "data/gold/credit_data"
+        self.bronze_path = f"{root_dir}/data/bronze/credit_data"
+        self.silver_path = f"{root_dir}/data/silver/credit_data"
+        self.gold_path = f"{root_dir}/data/gold/credit_data"
     
     def extract(self, input_path: str) -> None:
         df = self.spark.read.csv(input_path, header=True, inferSchema=False)
@@ -108,8 +115,15 @@ class ETLPipeline:
         return silver_df, gold_df
     
     def load(self, silver_df: DataFrame, gold_df: DataFrame) -> None:
-        silver_df.write.format("delta").mode("overwrite").save(self.silver_path)
-        gold_df.write.format("delta").mode("overwrite").save(self.gold_path)
+        silver_df.write.format("delta")\
+            .mode("overwrite")\
+            .option("overwriteSchema", "true")\
+            .save(self.silver_path)
+        
+        gold_df.write.format("delta")\
+            .mode("overwrite")\
+            .option("overwriteSchema", "true")\
+            .save(self.gold_path)
     
     def _convert_credit_history_to_months(self, df: DataFrame) -> DataFrame:
         return df.withColumn(
@@ -136,7 +150,7 @@ class ETLPipeline:
     def _process_silver_layer(self) -> DataFrame:
         df = self.spark.read.format("delta").load(self.bronze_path)
         
-        columns_to_remove = ["ID", "Customer_ID", "Name"]
+        columns_to_remove = ["ID", "Name"]
         df = df.drop(*columns_to_remove)
         
         df = self._convert_credit_history_to_months(df)
@@ -155,6 +169,7 @@ class ETLPipeline:
                 else:
                     df = df.fillna(0, subset=[col_name])
             except Exception as e:
+                logger.warning(f"Error while processing numeric column {col_name}: {str(e)}")
                 df = df.fillna(0, subset=[col_name])
         
         for col_name in categorical_cols:
@@ -163,63 +178,94 @@ class ETLPipeline:
                 if mode:
                     df = df.fillna(mode[0], subset=[col_name])
                 else:
-                    df = df.fillna("", subset=[col_name])
+                    df = df.fillna("unknown", subset=[col_name])
             except Exception as e:
-                df = df.fillna("", subset=[col_name])
+                logger.warning(f"Error while processing categorical column {col_name}: {str(e)}")
+                df = df.fillna("unknown", subset=[col_name])
         
-        df = self._remove_outliers(df, numeric_cols)
+        # df = self._remove_outliers(df, numeric_cols)
+        logger.info(f"Silver Dataframe number of rows: {df.count()}")
         
         return df
     
     def _process_gold_layer(self, silver_df: DataFrame) -> DataFrame:
-        aggregated_df = silver_df.groupBy("Credit_Score").agg(
-            avg("Monthly_Inhand_Salary").alias("avg_monthly_salary"),
-            avg("Num_Bank_Accounts").alias("avg_bank_accounts"),
-            avg("Credit_History_Months").alias("avg_credit_history"),
-            count("*").alias("customer_count")
+        logger.info("Processing gold layer...")
+        
+        numeric_cols = [field.name for field in silver_df.schema.fields 
+                       if isinstance(field.dataType, (IntegerType, DoubleType))]
+        categorical_cols = [field.name for field in silver_df.schema.fields 
+                          if isinstance(field.dataType, StringType)]
+        
+        if "Customer_ID" in categorical_cols:
+            categorical_cols.remove("Customer_ID")
+        
+        stats_df = silver_df.groupBy("Customer_ID").agg(
+            *[avg(col_name).alias(f"avg_{col_name}") for col_name in numeric_cols],
+            *[stddev(col_name).alias(f"std_{col_name}") for col_name in numeric_cols]
         )
         
-        numeric_cols = ["Monthly_Inhand_Salary", "Num_Bank_Accounts", "Credit_History_Months"]
         for col_name in numeric_cols:
             try:
-                if col_name not in silver_df.columns:
-                    print(f"Warning: Column {col_name} not found in silver layer")
-                    continue
-                    
-                non_null_count = silver_df.filter(col(col_name).isNotNull()).count()
-                if non_null_count == 0:
-                    print(f"Warning: Column {col_name} has no non-null values")
-                    continue
-                    
                 percentiles = silver_df.approxQuantile(col_name, [0.25, 0.5, 0.75], 0.01)
-                
-                if not percentiles or len(percentiles) != 3:
-                    print(f"Warning: Could not calculate percentiles for {col_name}")
-                    continue
-                    
-                aggregated_df = aggregated_df.withColumn(
-                    f"{col_name}_q1", lit(percentiles[0])
-                ).withColumn(
-                    f"{col_name}_median", lit(percentiles[1])
-                ).withColumn(
-                    f"{col_name}_q3", lit(percentiles[2])
+                if percentiles and len(percentiles) == 3:
+                    stats_df = stats_df.withColumn(
+                        f"{col_name}_q1", lit(percentiles[0])
+                    ).withColumn(
+                        f"{col_name}_median", lit(percentiles[1])
+                    ).withColumn(
+                        f"{col_name}_q3", lit(percentiles[2])
+                    )
+            except Exception as e:
+                logger.warning(f"Could not calculate percentiles for {col_name}: {str(e)}")
+        
+        gold_df = silver_df.join(stats_df, on="Customer_ID", how="left")
+        
+        for col_name in categorical_cols:
+            if not col_name or col_name.strip() == "":  # Skip empty column names
+                logger.warning("Skipping empty column name in categorical encoding")
+                continue
+            
+            try:
+                indexer = StringIndexer(
+                    inputCol=col_name,
+                    outputCol=f"{col_name}_idx",
+                    handleInvalid="keep"
                 )
+                gold_df = indexer.fit(gold_df).transform(gold_df)
+                
+                encoder = OneHotEncoder(
+                    inputCol=f"{col_name}_idx",
+                    outputCol=f"{col_name}_encoded",
+                    dropLast=True  # to prevent perfect multicollinearity
+                )
+                gold_df = encoder.fit(gold_df).transform(gold_df)
+                
+                gold_df = gold_df.drop(f"{col_name}_idx")
                 
             except Exception as e:
-                print(f"Warning: Error processing percentiles for {col_name}: {str(e)}")
+                logger.error(f"Error encoding categorical column {col_name}: {str(e)}")
                 continue
         
-        return aggregated_df
-
+        gold_df = gold_df.drop("Customer_ID")
+        
+        logger.info(f"Gold Dataframe number of rows: {gold_df.count()}")
+        
+        return gold_df
+    
     def __call__(self, raw_data_path: str) -> None:
+        logger.info("Running Extract")
         self.extract(raw_data_path)
+
+        logger.info("Running Transform")
         silver_df, gold_df = self.transform()
+
+        logger.info("Running Load")
         self.load(silver_df, gold_df)
 
-def create_etl_pipeline(spark: SparkSession, repartition: bool = False):
-    etl = ETLPipeline(spark)
+def create_etl_pipeline(spark: SparkSession, root_dir: str, do_repartition: bool = False):
+    etl = ETLPipeline(spark, root_dir)
     
-    if repartition:
+    if do_repartition:
         etl.transform = repartition(spark)(etl.transform)
         etl._process_silver_layer = repartition(spark)(etl._process_silver_layer)
         etl._process_gold_layer = repartition(spark)(etl._process_gold_layer)
