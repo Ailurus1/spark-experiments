@@ -9,6 +9,7 @@ import logging
 from pathlib import Path
 from typing import Tuple, List
 import os
+import numpy as np
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
@@ -102,24 +103,31 @@ def calculate_metrics(model, df):
 
     predictions = model.transform(df)
 
+    # Convert predictions to pandas
     pred_pd = predictions.select("label", "prediction", "probability").toPandas()
+
+    # Convert probability vectors to numpy arrays properly
+    probabilities = pred_pd["probability"].apply(lambda x: x.toArray()).values
+    probabilities = np.array([p for p in probabilities])  # Convert list of arrays to 2D array
 
     metrics = {}
 
     metrics["f1_macro"] = f1_score(
-        pred_pd["label"], pred_pd["prediction"], average="macro"
+        pred_pd["label"], 
+        pred_pd["prediction"], 
+        average="macro"
     )
 
     metrics["auc_roc"] = roc_auc_score(
         pred_pd["label"],
-        pred_pd["probability"].apply(lambda x: x.toArray()),
-        multi_class="ovr",
+        probabilities,
+        multi_class="ovr"
     )
 
-    metrics["avg_preecision"] = average_precision_score(
+    metrics["avg_precision"] = average_precision_score(
         pred_pd["label"],
-        pred_pd["probability"].apply(lambda x: x.toArray()),
-        average="macro",
+        probabilities,
+        average="macro"
     )
 
     return metrics
